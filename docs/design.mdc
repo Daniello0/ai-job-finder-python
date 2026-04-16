@@ -1,0 +1,91 @@
+---
+description: Design Document: JobFinder AI
+globs: **/*.py,**/*.sql
+alwaysApply: false
+---
+
+## 1. Introduction
+
+**Task:** Optimization of job search for university graduates in the Republic of Belarus using neural networks.
+
+**Main Idea:** 
+Transitioning from syntactic search (keyword-based) to semantic search (meaning-based). The system analyzes implicit connections between a graduate's skills and employer requirements using vector embeddings and RAG (Retrieval-Augmented Generation) architecture to provide intelligent responses.
+
+**Tech Stack:**
+- **Language:** Python 3.10+
+- **Frontend:** Streamlit
+- **Backend API:** FastAPI
+- **ORM:** SQLAlchemy (with `asyncpg` driver)
+- **Database:** PostgreSQL + pgvector
+- **Neural Core:** Sentence-Transformers (`paraphrase-multilingual-MiniLM-L12-v2` model)
+- **LLM:** Llama-3-8B (via Groq API)
+
+---
+
+## 2. User Stories
+- **Smart Profile:** As a graduate, I want to describe my skills, knowledge, and projects so that the system can find vacancies where this experience will be most useful.
+- **Intellectual Analysis:** As a user, I want to know why a specific vacancy suits me and what exactly it offers (conditions, requirements, tech stack).
+- **Top-5 & Summary:** As a user, I want to receive a list of the 5 most suitable vacancies with a brief summary from the LLM for each, so that I can quickly grasp the key details of each position without reading full descriptions.
+
+---
+
+## 3. Functional Requirements
+- **Automated Data Collection:** Parsing vacancies from rabota.by with deep filtering for Junior/Intern positions.
+- **Semantic Vectorization:** Converting descriptions into vectors of dimension 384 (a mathematical representation of text meaning in 384-dimensional space for precise comparison).
+- **Vector Search:** Utilizing cosine similarity to find relevant vacancies in the database.
+- **Data Validation:** Strict typing of incoming requests using Pydantic models.
+
+---
+
+## 4. API Design (FastAPI)
+
+Interaction between the interface and server logic is performed via a REST API:
+
+- **GET `/api/v1/search`** — Takes a user query, vectorizes it, and returns a list of vacancy IDs from PostgreSQL.
+- **POST `/api/v1/analyze`** — Takes the IDs of found vacancies and the user's profile, then returns a structured analysis and summaries from the LLM.
+- **POST `/api/v1/ingest`** — A technical endpoint to trigger the processing of new vacancies (vectorization).
+
+---
+
+## 5. Entity Model (PostgreSQL)
+
+**Table `vacancies`**:
+- `id`: Integer (PK).
+- `title`: String (Job title).
+- `company`: String (Company name).
+- `salary`: String (Salary amount).
+- `payment_frequency`: String (Payment frequency).
+- `experience`: String (Required experience).
+- `employment`: String (Employment type).
+- `hiring_format`: String (Hiring format).
+- `schedule`: String (Work schedule).
+- `hours`: String (Working hours).
+- `work_format`: String (Work format: office/remote).
+- `skills`: Text (List of key skills).
+- `url`: String (Link to the vacancy).
+- `description`: Text (Full description).
+- **`embedding`**: **Vector(384)** — Field for semantic search.
+
+---
+
+## 6. Technical Implementation (Internal Processes)
+
+### Step A: Data Enrichment Process (Ingestion)
+1. **Parser:** A scraper script populates the database with vacancies, leaving the vector field empty.
+2. **Embedder:** A background task selects records without vectors, creates a textual representation of the vacancy based on the title, skills, and description, then generates a vector via the Sentence-BERT neural network and saves it to the database.
+
+### Step B: Query Processing (Inference)
+1. **User Input:** The user enters a text description of their experience in the Streamlit interface.
+2. **FastAPI Request:** The client side sends this text to the backend for processing.
+3. **Query Vectorization:** The backend transforms the user's text into a numerical vector of the same dimension (384) as the vacancies in the database.
+4. **Similarity Search:** The backend performs a search in PostgreSQL, ranking vacancies by the proximity of their vectors to the user's query vector and selecting the top 5 most relevant.
+5. **RAG Logic:** The backend passes the user query and the data of the found vacancies to the LLM to prepare brief summaries and justification for the selection.
+6. **Response:** The final result, including the analysis and a list of links, is displayed to the user in the interface.
+
+---
+
+## 7. Technical Nuances and Optimization
+- **SQLAlchemy + pgvector:** Using a specialized extension for PostgreSQL ensures efficient handling of vector data types and high search speeds.
+- **Prompt Engineering:** The LLM system prompt is configured for the role of a career consulting expert in the Belarusian labor market.
+- **Process Synchronization:** The database vectorization process is decoupled from the user search process, preventing interface delays.
+- **Interface:** Streamlit provides reactive data display and maintains the state of the current search session.

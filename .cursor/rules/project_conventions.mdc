@@ -1,0 +1,67 @@
+---
+description: Python coding conventions, feature-based project structure, and snake_case naming rules for the backend.
+globs: "**/*.py"
+---
+
+# Project Stack & Coding Conventions
+
+You must follow these conventions for all Python files:
+
+## Technical Stack
+- **Language**: Python
+- **Frameworks and Technologies**: -
+- **Linting/Formatting**: Ruff
+
+## Naming Conventions
+- **Variables & Functions**: `snake_case`
+- **Classes**: `PascalCase`
+- **Files & Directories**: `snake_case` (e.g., `user_profile.py`, `weather_logic.py`)
+
+## API, Error Handling & Data Validation
+- **Documentation**: Document all public functions and classes using docstrings.
+- **Error Handling**: Never swallow errors. Throw meaningful, descriptive exceptions or use error-return patterns.
+- **Validation**: Use Pydantic models for data validation and transformation.
+
+## Development Workflow
+- **Verification**: After every change or addition, the project must successfully pass the following checks:
+  1. **Execution**: The application must start without errors.
+  2. **Linting**: `ruff check .` must pass.
+  3. **Formatting**: `ruff format .` must be applied.
+
+## Architecture & Design Decisions
+- **Feature-Based Organization**: All business logic must be organized by features within the `src/features/` directory. Each feature must be self-contained, encapsulating its own logic, routers, models, and schemas.
+- **Shared Components**: General-purpose utilities or shared logic must be placed in the `src/common/` directory and categorized by type.
+- **Function Focus and Conciseness**: Functions must remain focused and should not exceed **20–25 lines**. If a function grows beyond this limit, it must be refactored into smaller, modular sub-functions.
+- **File Naming**: Do not use dots to separate roles in filenames. Use simple names like `service.py`, `models.py`, `router.py`, `utils.py`.
+
+## Project Structure Example
+
+**1. Global Shared Components (`src/common/`):**
+*   **math/**
+    *   `calculations.py`
+    *   `logic.py`
+*   **utils/**
+    *   `validators.py`
+    *   `formatters.py`
+
+**2. Business Features (`src/features/`):**
+*   **database/**
+    *   `manager.py`
+    *   `utils.py`
+    *   `router.py`
+    *   `models.py`
+*   **main_page/**
+    *   `service.py`
+    *   `utils.py`
+*   **auth/**
+    *   `service.py`
+    *   `router.py`
+
+**Separation of Concerns Rule:**
+*   **Local Logic**: If a helper function is specific only to one feature, keep it within that feature's directory (e.g., `src/features/database/utils.py`).
+*   **Global Logic**: If a component or utility is generic and reusable across different features, move it to the corresponding subfolder in `src/common/`.
+
+## Anti-Patterns
+- **Magic Values**: Avoid hardcoded strings and "magic numbers". Define semantic values as constants in `src/common/constants/`.
+- **God Entities**: Strictly prohibit the creation of "God Classes" or "God Methods" that handle too many responsibilities.
+- **Single Responsibility Principle (SRP)**: If a module or function manages multiple business domains, it must be refactored into specialized units.

@@ -1,0 +1,21 @@
+---
+description: Security and privacy rules to prevent security leaks in Python projects.
+globs: "**/*"
+---
+
+# Security & Privacy Rules
+
+CRITICAL: To prevent security leaks, follow these rules strictly:
+
+1. NEVER read, include in context, or suggest committing files/paths containing: 
+   - `secret`, `key`, `password`, `token`, `credential`, `api_key`, `private`
+2. NEVER access these specific paths:
+   - `**/.env*`, exclude `**/.env.example` -
+   - `**/config/secrets*.yml` -
+   - `**/*_private.key` -
+   - `**/secrets*` -
+3. NEVER access files with extensions: 
+   - `.pem`, `.pfx`, `.jks`, `.keystore` -
+4. IGNORE all files listed in `.gitignore` unless explicitly requested and safe.
+
+If you are asked to read or modify any of the above, you MUST decline and explain that it violates security protocols.

@@ -1,0 +1,8 @@
+beautifulsoup4
+fake-useragent
+lxml
+pandas
+python-dotenv
+requests
+ruff
+tqdm
