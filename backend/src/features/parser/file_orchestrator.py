@@ -8,6 +8,8 @@ from common.constants.parser import (
     VACANCIES_FILE,
     VACANCY_LINKS_FILE,
 )
+from features.database.crud import upsert_vacancies
+from features.database.db import async_session_factory
 from features.parser.clear_csv import process_csv
 from features.parser.data_parser import parse_vacancy_details
 from features.parser.url_parser import parse_vacancy_links
@@ -16,6 +18,11 @@ from features.parser.url_parser import parse_vacancy_links
 def has_data(file_path: Path) -> bool:
     """Return True when a CSV-like artifact exists and contains data rows."""
     return file_path.exists() and file_path.stat().st_size > 0
+
+
+async def _upsert_cleaned_vacancies(cleaned_data: Any) -> int:
+    async with async_session_factory() as session:
+        return await upsert_vacancies(session, cleaned_data)
 
 
 def orchestrate_parser_pipeline(
@@ -36,7 +43,13 @@ def orchestrate_parser_pipeline(
         output_file=details_file,
         limit=vacancy_limit,
     )
-    return process_csv(input_file=details_file, output_file=cleaned_file)
+    cleaned_data = process_csv(input_file=details_file, output_file=cleaned_file)
+
+    import asyncio
+
+    affected = asyncio.run(_upsert_cleaned_vacancies(cleaned_data))
+    print(f"Upsert в PostgreSQL завершён. Затронуто строк: {affected}")
+    return cleaned_data
 
 
 if __name__ == "__main__":

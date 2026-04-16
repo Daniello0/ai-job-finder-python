@@ -4,5 +4,10 @@ lxml
 pandas
 python-dotenv
 requests
+SQLAlchemy
+asyncpg
+alembic
+pgvector
+psycopg2-binary
 ruff
 tqdm

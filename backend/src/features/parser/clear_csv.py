@@ -12,6 +12,14 @@ from common.constants.parser import (
 )
 from common.utils.progress import track_progress
 
+FIELD_PREFIXES = {
+    "hiring_format": "Оформление:",
+    "schedule": "График:",
+    "hours": "Рабочие часы:",
+    "work_format": "Формат работы:",
+    "payment_frequency": "Выплаты:",
+}
+
 
 def clean_text(text: Any) -> str:
     """Normalize text values before exporting the cleaned CSV."""
@@ -29,6 +37,12 @@ def clean_text(text: Any) -> str:
     text = re.sub(r"(\d)([А-Яа-яA-Za-z])", r"\1 \2", text)
     # Добавляем пробел между буквой и цифрой (от1000 -> от 1000)
     text = re.sub(r"([А-Яа-яA-Za-z])(\d)", r"\1 \2", text)
+    # Исправляем "Brза" -> "Br за"
+    text = re.sub(r"(Br)(за)", r"\1 \2", text, flags=re.IGNORECASE)
+    # Исправляем "месяцдо" -> "месяц до"
+    text = re.sub(r"(месяц)(до)", r"\1 \2", text, flags=re.IGNORECASE)
+    # Исправляем "месяцна" -> "месяц на"
+    text = re.sub(r"(месяц)(на)", r"\1 \2", text, flags=re.IGNORECASE)
 
     # Исправляем слипшиеся организационные формы (ОООНутри -> ООО Нутри)
     for form in ORG_FORMS:
@@ -40,6 +54,24 @@ def clean_text(text: Any) -> str:
     return text
 
 
+def strip_field_prefix(field: str, text: str) -> str:
+    """Remove duplicated technical prefixes from selected fields."""
+    prefix = FIELD_PREFIXES.get(field)
+    if not prefix:
+        return text
+    cleaned = text
+    while cleaned.startswith(prefix):
+        cleaned = cleaned.removeprefix(prefix).strip()
+    return cleaned.rstrip(";").strip()
+
+
+def capitalize_first_letter(text: str) -> str:
+    """Capitalize only the first character and keep the rest unchanged."""
+    if not text:
+        return text
+    return text[0].upper() + text[1:]
+
+
 def clean_row(row: dict[str, str]) -> dict[str, str]:
     """Clean every value in a parsed CSV row."""
     cleaned_row: dict[str, str] = {}
@@ -47,7 +79,9 @@ def clean_row(row: dict[str, str]) -> dict[str, str]:
         if key == "url":
             cleaned_row[key] = "" if value is None else str(value).strip()
             continue
-        cleaned_row[key] = clean_text(value)
+        cleaned_value = clean_text(value)
+        cleaned_value = strip_field_prefix(key, cleaned_value)
+        cleaned_row[key] = capitalize_first_letter(cleaned_value)
     return cleaned_row
 
 
@@ -71,6 +105,8 @@ def process_csv_with_pandas(input_file: Path, output_file: Path) -> Any:
             lambda column: column.map(str.strip)
             if column.name == "url"
             else column.map(clean_text)
+            .map(lambda value: strip_field_prefix(column.name, value))
+            .map(capitalize_first_letter)
         )
     )
     cleaned_dataframe.to_csv(
