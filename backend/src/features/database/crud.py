@@ -51,7 +51,9 @@ def _normalize_vacancy_payload(row: dict[str, Any]) -> dict[str, Any]:
 
 def _build_upsert(values: list[dict[str, Any]]) -> Insert:
     stmt = insert(Vacancy).values(values)
-    update_cols = {col: getattr(stmt.excluded, col) for col in VACANCY_INPUT_FIELDS if col != "url"}
+    update_cols = {
+        col: getattr(stmt.excluded, col) for col in VACANCY_INPUT_FIELDS if col != "url"
+    }
     return stmt.on_conflict_do_update(
         index_elements=[Vacancy.url],
         set_=update_cols,
@@ -70,4 +72,3 @@ async def upsert_vacancies(session: AsyncSession, cleaned_data: Any) -> int:
     result = await session.execute(stmt)
     await session.commit()
     return int(result.rowcount or 0)
-

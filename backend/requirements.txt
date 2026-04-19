@@ -11,3 +11,6 @@ pgvector
 psycopg2-binary
 ruff
 tqdm
+# Pin transformers 4.x: v5 requires torch>=2.4, which is unavailable in some pip indexes (only 2.2.x wheels).
+transformers>=4.41.0,<5.0.0
+sentence-transformers>=2.6.0,<3.0.0

@@ -49,7 +49,9 @@ DEFAULT_USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
 
-SEARCH_BASE_URL = get_env_str("SEARCH_BASE_URL", "https://grodno.rabota.by/search/vacancy")
+SEARCH_BASE_URL = get_env_str(
+    "SEARCH_BASE_URL", "https://grodno.rabota.by/search/vacancy"
+)
 SEARCH_REFERER = "https://rabota.by/"
 SEARCH_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 DETAIL_ACCEPT = (

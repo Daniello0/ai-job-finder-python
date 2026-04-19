@@ -38,7 +38,8 @@ class Vacancy(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
 
     if Vector is not None:
-        embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
+        embedding: Mapped[list[float] | None] = mapped_column(
+            Vector(384), nullable=True
+        )
     else:
         embedding: Mapped[str | None] = mapped_column(Text, nullable=True)
-

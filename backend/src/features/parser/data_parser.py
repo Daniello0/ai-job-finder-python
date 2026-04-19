@@ -179,7 +179,9 @@ def parse_vacancy_details(
     if not pending_urls:
         print(f"Все {len(urls)} вакансий уже обработаны.")
         return rows
-    for url in track_progress(pending_urls, total=len(pending_urls), description="Сбор данных"):
+    for url in track_progress(
+        pending_urls, total=len(pending_urls), description="Сбор данных"
+    ):
         row = parse_vacancy(url, user_agent)
         if row is None:
             continue

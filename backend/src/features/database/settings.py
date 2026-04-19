@@ -30,4 +30,3 @@ def build_database_url() -> str:
     db_name = _get_env_str("DB_NAME", "ai_job_finder")
 
     return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db_name}"
-

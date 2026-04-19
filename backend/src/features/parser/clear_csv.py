@@ -60,42 +60,42 @@ def clean_text(text: Any) -> str:
     # Удаляет невидимые разделители, которые часто встречаются в веб-верстках
     text = re.sub(r"[\u200b\u200e\u200f\ufeff\u2060\u200d]", "", text)
     # Удаляет эмодзи и специфические графические символы
-    text = re.sub(r'[^\x00-\x7F\u0400-\u04FF\s.,!?;:()\-+"\'«»№]', ' ', text)
+    text = re.sub(r'[^\x00-\x7F\u0400-\u04FF\s.,!?;:()\-+"\'«»№]', " ", text)
 
     # Удаляет шаблоны, которые часто встречаются в описаниях вакансий
     boilerplate = [
-    r"Ссылка на вакансию в банке вакансий на gsz\.gov\.by:.*",
-    r"Общереспубликанский банк вакансий на информационном портале.*",
-    r"на основании абз\.5 ст\. 34 Закона Республики Беларусь.*",
-    r"вакансия планируемая к созданию.*",
-    r"перспективная вакансия.*"
+        r"Ссылка на вакансию в банке вакансий на gsz\.gov\.by:.*",
+        r"Общереспубликанский банк вакансий на информационном портале.*",
+        r"на основании абз\.5 ст\. 34 Закона Республики Беларусь.*",
+        r"вакансия планируемая к созданию.*",
+        r"перспективная вакансия.*",
     ]
     for pattern in boilerplate:
         text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
 
     # Исправляем "г. Город" -> "город Город"
-    text = re.sub(r'\bг\.(\s?)([А-Я])', r'город \2', text)
+    text = re.sub(r"\bг\.(\s?)([А-Я])", r"город \2", text)
     # Исправляем "з/п" -> "заработная плата"
-    text = re.sub(r'\bз[/\s]?п\b', 'заработная плата', text, flags=re.IGNORECASE)
+    text = re.sub(r"\bз[/\s]?п\b", "заработная плата", text, flags=re.IGNORECASE)
     # Исправляем "В/У" -> "водительское удостоверение"
-    text = re.sub(r'\bВ/У\b', 'водительское удостоверение', text, flags=re.IGNORECASE)
+    text = re.sub(r"\bВ/У\b", "водительское удостоверение", text, flags=re.IGNORECASE)
     # Исправляем "ТК РБ" -> "трудовой кодекс"
-    text = re.sub(r'\bТК РБ\b', 'трудовой кодекс', text, flags=re.IGNORECASE)
+    text = re.sub(r"\bТК РБ\b", "трудовой кодекс", text, flags=re.IGNORECASE)
 
     # Приводим 1С к единому виду
-    text = re.sub(r'1\s?[СсCc]', '1C', text) 
+    text = re.sub(r"1\s?[СсCc]", "1C", text)
     # Приводим B2B к единому виду (часто пишут B 2 B)
-    text = re.sub(r'[Bb]\s?2\s?[Bb]', 'B2B', text)
+    text = re.sub(r"[Bb]\s?2\s?[Bb]", "B2B", text)
 
     # Удаляет ссылки
-    text = re.sub(r'https?://\S+', '', text)
+    text = re.sub(r"https?://\S+", "", text)
 
     # Заменяет .. и ... на одну точку
-    text = re.sub(r'\.{2,}', '.', text)
+    text = re.sub(r"\.{2,}", ".", text)
     # Заменяет -- на -
-    text = re.sub(r'-{2,}', '-', text)
+    text = re.sub(r"-{2,}", "-", text)
     # Схлопывает лишние пробелы и переносы строк
-    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r"\s+", " ", text)
 
     # Удаление экранированных кавычек
     text = text.replace('""', '"')
@@ -158,11 +158,13 @@ def process_csv_with_pandas(input_file: Path, output_file: Path) -> Any:
         dataframe.fillna("")
         .astype(str)
         .progress_apply(
-            lambda column: column.map(str.strip)
-            if column.name == "url"
-            else column.map(clean_text)
-            .map(lambda value: strip_field_prefix(column.name, value))
-            .map(capitalize_first_letter)
+            lambda column: (
+                column.map(str.strip)
+                if column.name == "url"
+                else column.map(clean_text)
+                .map(lambda value: strip_field_prefix(column.name, value))
+                .map(capitalize_first_letter)
+            )
         )
     )
     cleaned_dataframe.to_csv(

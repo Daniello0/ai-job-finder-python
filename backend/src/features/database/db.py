@@ -17,4 +17,3 @@ async def get_session() -> AsyncIterator[AsyncSession]:
     """Yield an async SQLAlchemy session (FastAPI-ready dependency)."""
     async with async_session_factory() as session:
         yield session
-

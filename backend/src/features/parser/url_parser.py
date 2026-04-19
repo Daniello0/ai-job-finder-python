@@ -165,7 +165,9 @@ def parse_vacancy_links(
     ):
         page_links = parse_search_page(page, user_agent)
         if page_links is None:
-            print(f"Страница {page + 1} пропущена: запрос не удался даже после повторов.")
+            print(
+                f"Страница {page + 1} пропущена: запрос не удался даже после повторов."
+            )
             continue
         if not page_links:
             print(f"Вакансии на странице {page + 1} не найдены. Завершаем сбор.")
