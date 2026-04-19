@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -25,14 +26,14 @@ async def _upsert_cleaned_vacancies(cleaned_data: Any) -> int:
         return await upsert_vacancies(session, cleaned_data)
 
 
-def orchestrate_parser_pipeline(
+async def orchestrate_parser_pipeline_async(
     pages_to_parse: int = DEFAULT_PAGES_TO_PARSE,
     vacancy_limit: int = DEFAULT_VACANCY_LIMIT,
     links_file: Path = VACANCY_LINKS_FILE,
     details_file: Path = VACANCY_DETAILS_FILE,
     cleaned_file: Path = VACANCIES_FILE,
 ) -> Any:
-    """Run the full parser pipeline and return the cleaned vacancies data."""
+    """Async upsert step; use under one event loop with other async DB code."""
     if not has_data(links_file):
         parse_vacancy_links(pages_to_parse=pages_to_parse, output_file=links_file)
     else:
@@ -45,11 +46,28 @@ def orchestrate_parser_pipeline(
     )
     cleaned_data = process_csv(input_file=details_file, output_file=cleaned_file)
 
-    import asyncio
-
-    affected = asyncio.run(_upsert_cleaned_vacancies(cleaned_data))
+    affected = await _upsert_cleaned_vacancies(cleaned_data)
     print(f"Upsert в PostgreSQL завершён. Затронуто строк: {affected}")
     return cleaned_data
+
+
+def orchestrate_parser_pipeline(
+    pages_to_parse: int = DEFAULT_PAGES_TO_PARSE,
+    vacancy_limit: int = DEFAULT_VACANCY_LIMIT,
+    links_file: Path = VACANCY_LINKS_FILE,
+    details_file: Path = VACANCY_DETAILS_FILE,
+    cleaned_file: Path = VACANCIES_FILE,
+) -> Any:
+    """Run the full parser pipeline (own event loop). Prefer :func:`orchestrate_parser_pipeline_async` in async apps."""
+    return asyncio.run(
+        orchestrate_parser_pipeline_async(
+            pages_to_parse=pages_to_parse,
+            vacancy_limit=vacancy_limit,
+            links_file=links_file,
+            details_file=details_file,
+            cleaned_file=cleaned_file,
+        )
+    )
 
 
 if __name__ == "__main__":
