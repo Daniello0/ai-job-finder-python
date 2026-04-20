@@ -35,8 +35,8 @@ async def _main_async() -> None:
 
     from common.constants.embedding import DEFAULT_EMBED_BATCH_SIZE
     from features.embedding.save_vectors_service import fill_db_with_vectors
-    from features.llm.service import get_vacancy_filters_from_text_async
     from features.parser.file_orchestrator import orchestrate_parser_pipeline_async
+    from features.search.service import user_search
 
     await orchestrate_parser_pipeline_async()
 
@@ -45,33 +45,55 @@ async def _main_async() -> None:
     )
     print(f"Векторы записаны в БД. Обновлено записей: {updated}")
 
-    # results = await similarity_search(
-    #     "Я студент и хочу найти подработку на кассе или в кафе, частичная занятость или гибрид, опыта и образования нет"
-    # )
-    # payload = [asdict(r) for r in results]
-    # print(json.dumps(payload, ensure_ascii=False, indent=2))
-
-    test_queries = [
-        "Я студент, хочу работать бариста и варить кофе, или поваром делать десерты, "
-        "не полный рабочий день и без опыта",
-
-        "Ищу работу мерчендайзером или торговым представителем с опытом 1-3 года, "
-        "нужны вечерние или ночные смены, формат разъездной, трудоустройство по ГПХ. "
-        "Навыки: активные продажи, работа с клиентами, права категории B",
-
-        "Я – студент, ищу работу программистом, опыта нет, образование – незаконченное высшее, "
-        "хочу найти с неполным рабочим графиком, можно удаленно или гибрид",
-
-        "Ищу подработку без опыта, выплаты раз в неделю или ежедневно, график по выходным или свободный, "
-        "можно 4-6 часов в день, формат на месте работодателя."
-    ]
-    for index, user_query in enumerate(test_queries, start=1):
+    print("\nПоиск вакансий. Введите запрос (пустая строка для выхода).")
+    while True:
+        user_query = input("\nВаш запрос: ").strip()
+        if not user_query:
+            print("Завершение поиска.")
+            break
         try:
-            llm_filters = await get_vacancy_filters_from_text_async(user_query)
-            print(f"LLM test #{index}:")
-            print(json.dumps(llm_filters, ensure_ascii=False, indent=2))
+            search_result = await user_search(user_query)
         except RuntimeError as error:
-            print(f"LLM test #{index} unavailable: {error}")
+            print(f"Поиск недоступен: {error}")
+            continue
+        print("\nLLM-фильтры:")
+        print(json.dumps(search_result.llm_filters, ensure_ascii=False, indent=2))
+        print("\nКоличество значений в базе по выбранным фильтрам:")
+        print(
+            json.dumps(
+                search_result.selected_value_counts, ensure_ascii=False, indent=2
+            )
+        )
+        if search_result.relax_steps:
+            print("\nШаги ослабления фильтров:")
+            for step in search_result.relax_steps:
+                print(
+                    f"{step.step}. Убрано {step.filter_key}='{step.filter_value}' "
+                    f"(в БД: {step.value_count_in_db}) | "
+                    f"кандидатов: {step.candidates_before} -> {step.candidates_after}"
+                )
+        if any(search_result.dropped_filters.values()):
+            print("\nОслабленные фильтры (guardrail):")
+            print(
+                json.dumps(search_result.dropped_filters, ensure_ascii=False, indent=2)
+            )
+        print(f"\nКандидатов после фильтрации: {search_result.candidate_count}")
+        print("Фильтры для поиска:")
+        print(json.dumps(search_result.applied_filters, ensure_ascii=False, indent=2))
+        if not search_result.vacancies:
+            print("Вакансии не найдены по текущим фильтрам.")
+            continue
+        print("\nТоп вакансий:")
+        for index, vacancy in enumerate(search_result.vacancies, start=1):
+            print(
+                f"{index}. {vacancy.title} — {vacancy.company}\n"
+                f"   distance={vacancy.cosine_distance:.4f}\n"
+                f"   salary={vacancy.salary}\n"
+                f"   experience={vacancy.experience}\n"
+                f"   employment={vacancy.employment}\n"
+                f"   work_format={vacancy.work_format}\n"
+                f"   url={vacancy.url}"
+            )
 
 
 def main() -> None:

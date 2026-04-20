@@ -2,6 +2,7 @@
 
 from features.llm.service import (
     build_vacancy_filter_allowed_values,
+    build_vacancy_filter_value_counts,
     get_llm_answer_service,
     get_vacancy_filters_from_text,
     get_vacancy_filters_from_text_async,
@@ -9,6 +10,7 @@ from features.llm.service import (
 
 __all__ = [
     "build_vacancy_filter_allowed_values",
+    "build_vacancy_filter_value_counts",
     "get_llm_answer_service",
     "get_vacancy_filters_from_text",
     "get_vacancy_filters_from_text_async",

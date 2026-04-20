@@ -9,7 +9,7 @@ import time
 from typing import Any
 
 import requests
-from sqlalchemy import distinct, select
+from sqlalchemy import func, select
 
 from common.constants.llm import (
     LLM_VALIDATION_RETRY_ATTEMPTS,
@@ -91,6 +91,10 @@ def _parse_json_payload(raw_content: str) -> dict[str, Any]:
 
 def _empty_filter_object() -> dict[str, list[str]]:
     return {key: [] for key in VACANCY_FILTER_KEYS}
+
+
+def _empty_filter_count_object() -> dict[str, dict[str, int]]:
+    return {key: {} for key in VACANCY_FILTER_KEYS}
 
 
 def _build_system_prompt(allowed_values: dict[str, list[str]]) -> str:
@@ -211,14 +215,29 @@ def get_llm_answer_service(prompt: str, context: str) -> LlmAnswer:
 
 async def build_vacancy_filter_allowed_values() -> dict[str, list[str]]:
     """Build allowed filter values from unique vacancy fields in PostgreSQL."""
-    allowed_values = _empty_filter_object()
+    counts = await build_vacancy_filter_value_counts()
+    return {key: sorted(counts[key]) for key in VACANCY_FILTER_KEYS}
+
+
+async def build_vacancy_filter_value_counts() -> dict[str, dict[str, int]]:
+    """Build ``value -> count`` maps for each filter field from PostgreSQL."""
+    allowed_values = _empty_filter_count_object()
     async with async_session_factory() as session:
         for key in VACANCY_FILTER_KEYS:
             column = _FILTER_COLUMN_MAP[key]
-            stmt = select(distinct(column)).where(column.isnot(None)).order_by(column)
+            stmt = (
+                select(column, func.count(column))
+                .where(column.isnot(None))
+                .group_by(column)
+                .order_by(column)
+            )
             result = await session.execute(stmt)
-            values = [_normalize_db_value(item[0]) for item in result.all()]
-            allowed_values[key] = sorted({v for v in values if v is not None})
+            value_counts: dict[str, int] = {}
+            for value, count in result.all():
+                normalized = _normalize_db_value(value)
+                if normalized is not None:
+                    value_counts[normalized] = int(count)
+            allowed_values[key] = value_counts
     return allowed_values
 
 
