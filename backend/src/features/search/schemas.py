@@ -14,6 +14,7 @@ class FilterRelaxStep:
     step: int
     filter_key: str
     filter_value: str
+    removed_weight: float
     value_count_in_db: int
     candidates_before: int
     candidates_after: int
@@ -24,7 +25,8 @@ class UserSearchResult:
     """Final user search output with inferred filters and ranked vacancies."""
 
     user_query: str
-    llm_filters: dict[str, list[str]]
+    role_keywords: list[str]
+    llm_filters: dict[str, list[dict[str, float | str]]]
     all_value_counts: dict[str, dict[str, int]]
     selected_value_counts: dict[str, dict[str, int]]
     applied_filters: dict[str, list[str]]

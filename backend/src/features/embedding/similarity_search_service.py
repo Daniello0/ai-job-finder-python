@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.constants.embedding import DEFAULT_SIMILARITY_TOP_K
@@ -72,12 +72,35 @@ def _apply_filters(
     return stmt
 
 
+def _normalize_role_keywords(role_keywords: list[str] | None) -> list[str]:
+    if not role_keywords:
+        return []
+    normalized = sorted(
+        {item.strip().lower() for item in role_keywords if item.strip()}
+    )
+    return normalized[:5]
+
+
+def _apply_role_keywords(stmt: object, role_keywords: list[str]):
+    if not role_keywords:
+        return stmt
+    clauses = [
+        or_(
+            Vacancy.title.ilike(f"%{keyword}%"),
+            Vacancy.skills.ilike(f"%{keyword}%"),
+        )
+        for keyword in role_keywords
+    ]
+    return stmt.where(or_(*clauses))
+
+
 async def _search_with_session(
     session: AsyncSession,
     query_vector: list[float],
     *,
     limit: int,
     filters: dict[str, list[str]],
+    role_keywords: list[str],
 ) -> list[SimilaritySearchResult]:
     distance_expr = Vacancy.embedding.cosine_distance(query_vector)
     stmt = (
@@ -87,6 +110,7 @@ async def _search_with_session(
         .limit(limit)
     )
     stmt = _apply_filters(stmt, filters)
+    stmt = _apply_role_keywords(stmt, role_keywords)
     result = await session.execute(stmt)
     return [_vacancy_to_result(v, d) for v, d in result.all()]
 
@@ -96,6 +120,7 @@ async def similarity_search(
     *,
     limit: int = DEFAULT_SIMILARITY_TOP_K,
     filters: dict[str, list[str]] | None = None,
+    role_keywords: list[str] | None = None,
     session: AsyncSession | None = None,
 ) -> list[SimilaritySearchResult]:
     """
@@ -111,15 +136,24 @@ async def similarity_search(
     vectors = await encode_texts([stripped])
     query_vector = vectors[0]
     normalized_filters = _normalize_filters(filters)
+    normalized_role_keywords = _normalize_role_keywords(role_keywords)
 
     if session is not None:
         return await _search_with_session(
-            session, query_vector, limit=limit, filters=normalized_filters
+            session,
+            query_vector,
+            limit=limit,
+            filters=normalized_filters,
+            role_keywords=normalized_role_keywords,
         )
 
     async with async_session_factory() as s:
         return await _search_with_session(
-            s, query_vector, limit=limit, filters=normalized_filters
+            s,
+            query_vector,
+            limit=limit,
+            filters=normalized_filters,
+            role_keywords=normalized_role_keywords,
         )
 
 
@@ -128,6 +162,14 @@ def run_similarity_search(
     *,
     limit: int = DEFAULT_SIMILARITY_TOP_K,
     filters: dict[str, list[str]] | None = None,
+    role_keywords: list[str] | None = None,
 ) -> list[SimilaritySearchResult]:
     """Synchronous wrapper for :func:`similarity_search` (scripts, REPL)."""
-    return asyncio.run(similarity_search(query_text, limit=limit, filters=filters))
+    return asyncio.run(
+        similarity_search(
+            query_text,
+            limit=limit,
+            filters=filters,
+            role_keywords=role_keywords,
+        )
+    )

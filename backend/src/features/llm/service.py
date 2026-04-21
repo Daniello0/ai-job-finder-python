@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 
 from common.constants.llm import (
     LLM_VALIDATION_RETRY_ATTEMPTS,
+    VACANCY_OPTIONAL_KEYS,
     OPENROUTER_BASE_URL,
     OPENROUTER_MODEL,
     OPENROUTER_RETRY_ATTEMPTS,
@@ -115,18 +116,51 @@ def _validate_llm_payload(
     payload: dict[str, Any], allowed_values: dict[str, list[str]]
 ) -> list[str]:
     errors: list[str] = []
-    if set(payload.keys()) != set(VACANCY_FILTER_KEYS):
-        errors.append("JSON must contain only required filter keys.")
+    required = set(VACANCY_FILTER_KEYS)
+    optional = set(VACANCY_OPTIONAL_KEYS)
+    payload_keys = set(payload.keys())
+    if not required.issubset(payload_keys):
+        errors.append("JSON must contain all required filter keys.")
+    unknown = sorted(payload_keys - required - optional)
+    if unknown:
+        errors.append(f"JSON contains unknown keys: {', '.join(unknown)}.")
+
+    role_keywords = payload.get("role_keywords", [])
+    if not isinstance(role_keywords, list):
+        errors.append("Field 'role_keywords' must be an array.")
+    elif not all(isinstance(item, str) for item in role_keywords):
+        errors.append("Field 'role_keywords' must contain only strings.")
+    elif len(role_keywords) > 5:
+        errors.append("Field 'role_keywords' must contain at most 5 items.")
     for key in VACANCY_FILTER_KEYS:
         value = payload.get(key)
         if not isinstance(value, list):
             errors.append(f"Field '{key}' must be an array.")
             continue
-        if not all(isinstance(item, str) for item in value):
-            errors.append(f"Field '{key}' must contain only strings.")
-            continue
         allowed_set = set(allowed_values[key])
-        invalid_values = [item for item in value if item not in allowed_set]
+        invalid_values: list[str] = []
+        for item in value:
+            if not isinstance(item, dict):
+                errors.append(f"Field '{key}' items must be objects.")
+                continue
+            if set(item.keys()) != {"value", "weight"}:
+                errors.append(
+                    f"Field '{key}' items must contain only 'value' and 'weight'."
+                )
+                continue
+            raw_filter_value = item.get("value")
+            raw_weight = item.get("weight")
+            if not isinstance(raw_filter_value, str):
+                errors.append(f"Field '{key}' item 'value' must be a string.")
+                continue
+            if not isinstance(raw_weight, int | float):
+                errors.append(f"Field '{key}' item 'weight' must be numeric.")
+                continue
+            if not 0 <= float(raw_weight) <= 1:
+                errors.append(f"Field '{key}' item 'weight' must be in range [0, 1].")
+                continue
+            if raw_filter_value not in allowed_set:
+                invalid_values.append(raw_filter_value)
         if invalid_values:
             joined = ", ".join(invalid_values)
             errors.append(f"Field '{key}' has invalid values: {joined}.")

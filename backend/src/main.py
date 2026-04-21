@@ -58,6 +58,7 @@ async def _main_async() -> None:
             continue
         print("\nLLM-фильтры:")
         print(json.dumps(search_result.llm_filters, ensure_ascii=False, indent=2))
+        print(f"\nRole keywords: {search_result.role_keywords}")
         print("\nКоличество значений в базе по выбранным фильтрам:")
         print(
             json.dumps(
@@ -69,6 +70,7 @@ async def _main_async() -> None:
             for step in search_result.relax_steps:
                 print(
                     f"{step.step}. Убрано {step.filter_key}='{step.filter_value}' "
+                    f"(weight={step.removed_weight:.2f}) "
                     f"(в БД: {step.value_count_in_db}) | "
                     f"кандидатов: {step.candidates_before} -> {step.candidates_after}"
                 )
