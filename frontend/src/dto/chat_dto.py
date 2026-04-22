@@ -14,4 +14,5 @@ class ChatMessageDto(BaseModel):
 
     role: Literal["user", "assistant"]
     content: str
+    vacancies: list[VacancyDto] | None = None
     vacancy: VacancyDto | None = None

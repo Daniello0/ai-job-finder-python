@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+from constants.mock_data import (
+    MOCK_VACANCY_COSINE_DISTANCE,
+    MOCK_VACANCY_ID,
+    MOCK_VACANCY_URL,
+)
 from dto.vacancy_dto import VacancyDto
 
 
 def get_mock_vacancy() -> VacancyDto:
     """Return one demo vacancy for frontend visual validation."""
     return VacancyDto(
-        id=101,
+        id=MOCK_VACANCY_ID,
         title="Junior Python Developer",
         company="BelTech Solutions",
         salary="2000-2800 BYN",
@@ -20,7 +25,7 @@ def get_mock_vacancy() -> VacancyDto:
         hours="40 часов в неделю",
         work_format="Гибрид, Минск",
         skills="Python, FastAPI, PostgreSQL, Docker, Git",
-        url="https://rabota.by/vacancy/123456",
+        url=MOCK_VACANCY_URL,
         description=(
             "Ищем Junior Python Developer в команду продуктовой разработки. "
             "Вы будете участвовать в создании микросервисов на FastAPI, "
@@ -29,5 +34,5 @@ def get_mock_vacancy() -> VacancyDto:
             "Предусмотрено менторство, ревью кода и понятный план роста на 6 месяцев. "
             "Плюсом будет опыт pet-проектов и участие в хакатонах."
         ),
-        cosine_distance=0.1723,
+        cosine_distance=MOCK_VACANCY_COSINE_DISTANCE,
     )

@@ -13,11 +13,13 @@ class ChatService:
         self.backend_service = BackendApiService()
 
     def build_response(self, user_prompt: str) -> ChatMessageDto:
-        """Create one assistant message with vacancy card."""
+        """Create one assistant message with 0..5 vacancy cards."""
         analyzed = self.backend_service.get_vacancy_for_profile(user_prompt)
-        best_match = analyzed.vacancies[0]
-        text = (
-            f"{analyzed.summary}\n\n"
-            f"Нашел подходящий вариант: **{best_match.title}** в **{best_match.company}**."
+        if not analyzed.vacancies:
+            return ChatMessageDto(role="assistant", content=analyzed.summary)
+
+        count = len(analyzed.vacancies)
+        text = f"{analyzed.summary}\n\nНайдено вакансий: **{count}**."
+        return ChatMessageDto(
+            role="assistant", content=text, vacancies=analyzed.vacancies
         )
-        return ChatMessageDto(role="assistant", content=text, vacancy=best_match)

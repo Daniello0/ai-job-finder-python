@@ -1,5 +1,13 @@
 import os
 
+from common.constants.database import (
+    DEFAULT_DB_HOST,
+    DEFAULT_DB_NAME,
+    DEFAULT_DB_PASSWORD,
+    DEFAULT_DB_PORT,
+    DEFAULT_DB_USER,
+)
+
 
 def _get_env_str(name: str, default: str) -> str:
     value = os.getenv(name)
@@ -23,10 +31,10 @@ def build_database_url() -> str:
     if database_url and database_url.strip():
         return database_url.strip()
 
-    host = _get_env_str("DB_HOST", "localhost")
-    port = _get_env_str("DB_PORT", "5432")
-    user = _get_env_str("DB_USER", "postgres")
-    password = _get_env_str("DB_PASSWORD", "postgres")
-    db_name = _get_env_str("DB_NAME", "ai_job_finder")
+    host = _get_env_str("DB_HOST", DEFAULT_DB_HOST)
+    port = _get_env_str("DB_PORT", DEFAULT_DB_PORT)
+    user = _get_env_str("DB_USER", DEFAULT_DB_USER)
+    password = _get_env_str("DB_PASSWORD", DEFAULT_DB_PASSWORD)
+    db_name = _get_env_str("DB_NAME", DEFAULT_DB_NAME)
 
     return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db_name}"
