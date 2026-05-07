@@ -2,6 +2,7 @@ beautifulsoup4
 fastapi
 fake-useragent
 lxml
+numpy>=1.26,<2.0
 pandas
 python-dotenv
 requests

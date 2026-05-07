@@ -1,24 +1,20 @@
-"""OpenRouter service helpers for extracting vacancy filters from user text."""
+"""Groq service helpers for extracting vacancy filters from user text."""
 
 from __future__ import annotations
 
 import asyncio
 import json
 import os
-import time
 from typing import Any
 
 import requests
 from sqlalchemy import func, select
 
 from common.constants.llm import (
-    LLM_VALIDATION_RETRY_ATTEMPTS,
     VACANCY_OPTIONAL_KEYS,
-    OPENROUTER_BASE_URL,
-    OPENROUTER_MODEL,
-    OPENROUTER_RETRY_ATTEMPTS,
-    OPENROUTER_RETRY_BACKOFF_SECONDS,
-    OPENROUTER_TIMEOUT_SECONDS,
+    GROQ_BASE_URL,
+    GROQ_MODEL,
+    GROQ_TIMEOUT_SECONDS,
     VACANCY_FILTER_KEYS,
     VACANCY_FILTERS_CONTEXT_TEMPLATE,
     VACANCY_FILTERS_SYSTEM_PROMPT_TEMPLATE,
@@ -38,18 +34,62 @@ _FILTER_COLUMN_MAP = {
 }
 
 
-def _get_openrouter_api_key() -> str:
-    api_key = os.getenv("OPEN_ROUTER_API_KEY")
+def _get_groq_api_key() -> str:
+    api_key = os.getenv("GROQ_API_KEY")
     if api_key and api_key.strip():
         return api_key.strip()
-    msg = "OPEN_ROUTER_API_KEY is missing. Add it to environment variables."
+    msg = "GROQ_API_KEY is missing. Add it to environment variables."
     raise ValueError(msg)
 
 
-def _build_payload(prompt: str, context: str) -> dict[str, Any]:
+def _build_json_schema(allowed_values: dict[str, list[str]]) -> dict[str, Any]:
+    item_schema_by_key: dict[str, dict[str, Any]] = {}
+    for key in VACANCY_FILTER_KEYS:
+        item_schema_by_key[key] = {
+            "type": "object",
+            "properties": {
+                "value": {"type": "string", "enum": allowed_values[key]},
+                "weight": {"type": "number", "minimum": 0, "maximum": 1},
+            },
+            "required": ["value", "weight"],
+            "additionalProperties": False,
+        }
+
+    properties: dict[str, Any] = {
+        key: {
+            "type": "array",
+            "items": item_schema_by_key[key],
+            "maxItems": 2,
+        }
+        for key in VACANCY_FILTER_KEYS
+    }
+    properties["role_keywords"] = {
+        "type": "array",
+        "items": {"type": "string"},
+        "maxItems": 5,
+    }
     return {
-        "model": OPENROUTER_MODEL,
+        "type": "object",
+        "properties": properties,
+        "required": [*VACANCY_FILTER_KEYS, "role_keywords"],
+        "additionalProperties": False,
+    }
+
+
+def _build_payload(
+    prompt: str, context: str, allowed_values: dict[str, list[str]]
+) -> dict[str, Any]:
+    return {
+        "model": GROQ_MODEL,
         "temperature": 0,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "vacancy_filters",
+                "strict": True,
+                "schema": _build_json_schema(allowed_values),
+            },
+        },
         "messages": [
             {"role": "system", "content": prompt},
             {"role": "user", "content": context},
@@ -60,13 +100,13 @@ def _build_payload(prompt: str, context: str) -> dict[str, Any]:
 def _extract_content(data: dict[str, Any]) -> str:
     choices = data.get("choices")
     if not isinstance(choices, list) or not choices:
-        raise ValueError("OpenRouter response does not contain choices.")
+        raise ValueError("Groq response does not contain choices.")
     message = choices[0].get("message")
     if not isinstance(message, dict):
-        raise ValueError("OpenRouter response message is missing.")
+        raise ValueError("Groq response message is missing.")
     content = message.get("content")
     if not isinstance(content, str) or not content.strip():
-        raise ValueError("OpenRouter response content is empty.")
+        raise ValueError("Groq response content is empty.")
     return content.strip()
 
 
@@ -167,20 +207,6 @@ def _validate_llm_payload(
     return errors
 
 
-def _build_retry_context(base_context: str, errors: list[str]) -> str:
-    validation_errors = "\n".join(f"- {err}" for err in errors[:12])
-    return (
-        f"{base_context}\n\n"
-        "Предыдущий ответ не прошел валидацию. "
-        "Верни исправленный JSON по правилам.\n"
-        f"Ошибки валидации:\n{validation_errors}"
-    )
-
-
-def _is_retryable_status(status_code: int) -> bool:
-    return status_code == 429 or status_code >= 500
-
-
 def _response_error_message(response: requests.Response) -> str:
     try:
         data = response.json()
@@ -192,58 +218,36 @@ def _response_error_message(response: requests.Response) -> str:
                 return error
     except ValueError:
         pass
-    return response.text.strip() or "Unknown OpenRouter error."
+    return response.text.strip() or "Unknown Groq error."
 
 
-def _post_with_retry(
-    headers: dict[str, str], payload: dict[str, Any]
-) -> requests.Response:
-    last_error: Exception | None = None
-    for attempt in range(1, OPENROUTER_RETRY_ATTEMPTS + 1):
-        try:
-            response = requests.post(
-                OPENROUTER_BASE_URL,
-                headers=headers,
-                json=payload,
-                timeout=OPENROUTER_TIMEOUT_SECONDS,
-            )
-        except requests.RequestException as err:
-            last_error = err
-            if attempt == OPENROUTER_RETRY_ATTEMPTS:
-                break
-            time.sleep(OPENROUTER_RETRY_BACKOFF_SECONDS * attempt)
-            continue
-
-        if response.ok:
-            return response
-        if (
-            _is_retryable_status(response.status_code)
-            and attempt < OPENROUTER_RETRY_ATTEMPTS
-        ):
-            time.sleep(OPENROUTER_RETRY_BACKOFF_SECONDS * attempt)
-            continue
-
-        details = _response_error_message(response)
-        msg = f"OpenRouter request failed ({response.status_code}): {details}"
-        raise RuntimeError(msg)
-
-    msg = f"OpenRouter request failed after retries: {last_error!r}"
-    raise RuntimeError(msg)
-
-
-def get_llm_answer_service(prompt: str, context: str) -> LlmAnswer:
-    """Call OpenRouter chat completions and parse JSON from the first choice."""
-    api_key = _get_openrouter_api_key()
+def get_llm_answer_service(
+    prompt: str, context: str, allowed_values: dict[str, list[str]]
+) -> LlmAnswer:
+    """Call Groq chat completions and parse JSON from the first choice."""
+    api_key = _get_groq_api_key()
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-    payload = _build_payload(prompt, context)
-    response = _post_with_retry(headers, payload)
+    payload = _build_payload(prompt, context, allowed_values)
+    try:
+        response = requests.post(
+            GROQ_BASE_URL,
+            headers=headers,
+            json=payload,
+            timeout=GROQ_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException as err:
+        raise RuntimeError(f"Groq request failed: {err!r}") from err
+    if not response.ok:
+        details = _response_error_message(response)
+        msg = f"Groq request failed ({response.status_code}): {details}"
+        raise RuntimeError(msg)
     data = response.json()
     raw_content = _extract_content(data)
     payload = _parse_json_payload(raw_content)
-    model = str(data.get("model", OPENROUTER_MODEL))
+    model = str(data.get("model", GROQ_MODEL))
     return LlmAnswer(model=model, raw_content=raw_content, payload=payload)
 
 
@@ -279,21 +283,13 @@ async def get_vacancy_filters_from_text_async(user_message: str) -> dict[str, An
     """Build DB-based prompt, request filters from LLM, and validate response."""
     allowed_values = await build_vacancy_filter_allowed_values()
     prompt = _build_system_prompt(allowed_values)
-    base_context = VACANCY_FILTERS_CONTEXT_TEMPLATE.format(
+    context = VACANCY_FILTERS_CONTEXT_TEMPLATE.format(
         user_message=user_message.strip()
     )
-    context = base_context
-    errors: list[str] = []
-    for _ in range(LLM_VALIDATION_RETRY_ATTEMPTS):
-        try:
-            answer = get_llm_answer_service(prompt, context)
-        except ValueError as error:
-            errors = [str(error)]
-        else:
-            errors = _validate_llm_payload(answer.payload, allowed_values)
-            if not errors:
-                return answer.payload
-        context = _build_retry_context(base_context, errors)
+    answer = get_llm_answer_service(prompt, context, allowed_values)
+    errors = _validate_llm_payload(answer.payload, allowed_values)
+    if not errors:
+        return answer.payload
     details = "; ".join(errors) if errors else "Unknown validation error."
     raise RuntimeError(f"LLM response validation failed: {details}")
 

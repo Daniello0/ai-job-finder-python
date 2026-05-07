@@ -16,6 +16,8 @@ if str(SRC_DIR) not in sys.path:
 
 load_dotenv(BACKEND_DIR / ".env")
 
+CASE_DELAY_SECONDS = 60
+
 
 @dataclass(frozen=True, slots=True)
 class EvalCase:
@@ -227,13 +229,15 @@ async def _run_search_evaluation_async() -> None:
         print(f"hit@1={report.hit_at_1} hit@5={report.hit_at_5}")
         if report.error_message:
             print(f"Case error: {report.error_message}")
-            continue
-        if not report.top_vacancies:
+        elif not report.top_vacancies:
             print("Top vacancies: none")
-            continue
-        print("Top vacancies:")
-        for line in report.top_vacancies:
-            print(line)
+        else:
+            print("Top vacancies:")
+            for line in report.top_vacancies:
+                print(line)
+        if index < len(_EVAL_CASES):
+            print(f"Waiting {CASE_DELAY_SECONDS}s before next case...")
+            await asyncio.sleep(CASE_DELAY_SECONDS)
     total = len(_EVAL_CASES)
     print(f"\nSummary: hit@1={hits_1}/{total}, hit@5={hits_5}/{total}")
     await engine.dispose()
