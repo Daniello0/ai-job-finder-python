@@ -1,7 +1,7 @@
 """OpenRouter and prompt constants for vacancy filter extraction."""
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = "arcee-ai/trinity-large-preview:free"
+OPENROUTER_MODEL = "inclusionai/ling-2.6-1t:free"
 OPENROUTER_TIMEOUT_SECONDS = 45
 OPENROUTER_RETRY_ATTEMPTS = 4
 OPENROUTER_RETRY_BACKOFF_SECONDS = 2

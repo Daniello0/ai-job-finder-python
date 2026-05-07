@@ -3,7 +3,7 @@
 INITIAL_ASSISTANT_MESSAGE = (
     "Опишите ваш опыт, стек и ожидания — я подберу вакансию и покажу ключевые детали."
 )
-CHAT_INPUT_PLACEHOLDER = "Например: Junior Python, FastAPI, удаленно в Минске"
+CHAT_INPUT_PLACEHOLDER = "Например: Ищу работу бариста в сеть кофеен, без опыта, 2/2"
 ASSISTANT_RUNNING_MESSAGE = "Running..."
 
 SUMMARY_SUCCESS = "Нашел наиболее релевантные вакансии под ваш запрос."
